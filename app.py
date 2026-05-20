@@ -11,8 +11,8 @@ st.title("🏭 Executive Quality Command Center")
 @st.cache_data
 def load_data():
     file = "QC DEFECT REPORT.xlsx" # 파일명
-    sewing = pd.read_excel(file, sheet_name="Raw Data - Sewing")
-    finishing = pd.read_excel(file, sheet_name="Raw Data - Finishing")
+    sewing = pd.read_excel(file, sheet_name="SEWING")
+    finishing = pd.read_excel(file, sheet_name="FINISHING")
     return sewing, finishing
 
 sewing_df, finish_df = load_data()
