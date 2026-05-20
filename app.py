@@ -1,25 +1,28 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 
-# 페이지 설정
-st.set_page_config(page_title="Quality Command Center", layout="wide")
+st.set_page_config(layout="wide")
 
-st.title("🏭 Executive Quality Command Center")
-
-# 데이터 로드 (시트별로 불러오기)
 @st.cache_data
 def load_data():
     file = "QC DEFECT REPORT.xlsx"
-    sewing = pd.read_excel(file, sheet_name="SEWING")
+    # 시트 이름을 확인하기 위해 시트 목록만 먼저 불러옵니다.
+    xl = pd.ExcelFile(file)
+    st.write("엑셀 파일 내 시트 목록:", xl.sheet_names) # 이 줄을 통해 실제 시트명을 확인하세요
     
-    # 열 이름의 앞뒤 공백을 제거하고 대문자로 통일 (이게 있으면 에러가 사라집니다!)
-    sewing.columns = sewing.columns.str.strip().str.upper() 
-    
+    sewing = pd.read_excel(file, sheet_name="SEWING") 
     finishing = pd.read_excel(file, sheet_name="FINISHING")
+    
+    sewing.columns = sewing.columns.str.strip().str.upper()
     finishing.columns = finishing.columns.str.strip().str.upper()
+    return sewing, finishing
 
-sewing_df, finish_df = load_data()
+try:
+    sewing_df, finish_df = load_data()
+    st.write("데이터 로드 성공!")
+    st.write(sewing_df.head()) # 데이터가 잘 들어왔는지 확인
+except Exception as e:
+    st.error(f"에러 발생: {e}")
 
 # 사이드바 필터 (날짜 및 라인 선택)
 st.sidebar.header("Filter Settings")
