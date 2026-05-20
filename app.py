@@ -1,52 +1,51 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 
-# 1. 페이지 설정
-st.set_page_config(layout="wide", page_title="Quality Dashboard")
+st.set_page_config(layout="wide", page_title="DHG2 Quality Dashboard")
 st.title("🏭 Executive Quality Command Center")
 
-# 2. 데이터 로드
 @st.cache_data
 def load_data():
     file = "QC DEFECT REPORT.xlsx"
-    # 이제 파일이 깔끔하므로 기본값으로 읽습니다.
     sewing = pd.read_excel(file, sheet_name="SEWING")
-    finishing = pd.read_excel(file, sheet_name="FINISHING")
+    finish = pd.read_excel(file, sheet_name="FINISHING")
     
-    # 열 이름 통일 (공백 제거 및 대문자)
-    sewing.columns = [str(c).strip().upper() for c in sewing.columns]
-    finishing.columns = [str(c).strip().upper() for c in finishing.columns]
-    
-    return sewing, finishing
+    for df in [sewing, finish]:
+        df.columns = [str(c).strip().upper() for c in df.columns]
+        if 'DEFECTS %' in df.columns:
+            df['DEFECTS %'] = df['DEFECTS %'].astype(str).str.replace('%', '').astype(float)
+    return sewing, finish
 
-try:
-    sewing_df, finish_df = load_data()
-    
-    # 사이드바 필터
-    st.sidebar.header("Filter Settings")
-    selected_line = st.sidebar.multiselect("Select Line", sewing_df['LINE'].unique())
-    
-    # 데이터 필터링
-    filtered_df = sewing_df
-    if selected_line:
-        filtered_df = sewing_df[sewing_df['LINE'].isin(selected_line)]
-    
-    # 메트릭 표시 (숫자 처리)
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total Sewing Defects", int(filtered_df['TOTAL DEFECTS'].sum()))
-    col2.metric("Total Inspected", int(filtered_df['TOTAL Q\'TY INSPECTED'].sum()))
-    
-    # 차트 시각화
-    st.subheader("Line vs Defect Rate")
-    # 'DEFECTS %' 열이 문자열(예: '35.1%')이면 그래프가 안 그려지므로 숫자로 변환
-    if filtered_df['DEFECTS %'].dtype == 'object':
-        filtered_df['DEFECTS %'] = filtered_df['DEFECTS %'].astype(str).str.replace('%', '').astype(float)
-    
-    fig = px.bar(filtered_df, x='LINE', y='DEFECTS %', color='DEFECTS %', 
-                 color_continuous_scale='Reds', template='plotly_dark')
-    st.plotly_chart(fig, use_container_width=True)
+sewing_df, finish_df = load_data()
 
-except Exception as e:
-    st.error(f"데이터 로드 중 오류 발생: {e}")
-    st.write("엑셀 헤더가 올바른지 다시 한번 확인해주세요.")
+# 1. 라인별 평균 계산 (Sewing & Finishing 비교)
+s_avg = sewing_df.groupby('LINE')['DEFECTS %'].mean().reset_index().rename(columns={'DEFECTS %': 'SEWING'})
+f_avg = finish_df.groupby('LINE')['DEFECTS %'].mean().reset_index().rename(columns={'DEFECTS %': 'FINISHING'})
+combined = pd.merge(s_avg, f_avg, on='LINE')
+combined['GAP'] = combined['FINISHING'] - combined['SEWING']
+
+# 2. 대시보드 레이아웃
+st.subheader("📊 Sewing vs Finishing Gap Analysis")
+fig_gap = px.bar(combined.melt(id_vars='LINE', value_vars=['SEWING', 'FINISHING']), 
+                 x='LINE', y='value', color='variable', barmode='group', template='plotly_dark')
+st.plotly_chart(fig_gap, use_container_width=True)
+
+# 3. 40% 이상 라인 경고 (Action Plan)
+st.subheader("🚨 Critical Alert (Defect Rate > 40%)")
+critical_lines = combined[(combined['SEWING'] > 40) | (combined['FINISHING'] > 40)]
+if not critical_lines.empty:
+    st.error(f"다음 라인이 40%를 초과했습니다: {critical_lines['LINE'].tolist()}")
+else:
+    st.success("모든 라인이 정상 범위(40% 미만) 내에 있습니다.")
+
+# 4. 파레토 차트 (전체 불량 유형 합산)
+st.subheader("📈 Top Defect Types (Pareto Analysis)")
+# 데이터가 많으므로 주요 불량 항목만 선택 (사용자 데이터 컬럼명에 맞춰 수정)
+defect_cols = [c for c in sewing_df.columns if c not in ['DATE', 'BUYER', 'STYLE', 'LINE', 'TOTAL DEFECTS', 'Q\'TY ACCEPTED', 'TOTAL Q\'TY INSPECTED', 'DEFECTS %', 'REMARKS']]
+pareto_data = sewing_df[defect_cols].sum().sort_values(ascending=False).head(10).reset_index()
+pareto_data.columns = ['Defect Type', 'Count']
+
+fig_pareto = px.bar(pareto_data, x='Defect Type', y='Count', template='plotly_dark', color='Count', color_continuous_scale='Blues')
+st.plotly_chart(fig_pareto, use_container_width=True)
