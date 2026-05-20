@@ -2,48 +2,52 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-st.set_page_config(layout="wide")
+st.set_page_config(layout="wide", page_title="DHG2 Quality Dashboard")
+st.title("🏭 Executive Quality Command Center")
 
 @st.cache_data
 def load_data():
     file = "QC DEFECT REPORT.xlsx"
-    # 시트별로 로드
     sewing = pd.read_excel(file, sheet_name="SEWING")
     finish = pd.read_excel(file, sheet_name="FINISHING")
     
     # 열 이름 정리
     sewing.columns = [str(c).strip().upper() for c in sewing.columns]
     finish.columns = [str(c).strip().upper() for c in finish.columns]
+    
+    # % 제거 및 숫자 변환
+    def clean_pct(df, col_name):
+        if col_name in df.columns:
+            df[col_name] = df[col_name].astype(str).str.replace('%', '').astype(float)
+        return df
+
+    sewing = clean_pct(sewing, 'SEWING DEFECTS %')
+    finish = clean_pct(finish, 'FINISHING BEFORE IRON DEFECTS %')
+    finish = clean_pct(finish, 'FINISHING AFTER IRON DEFECTS %')
+    
+    # 라인 번호를 문자로 변환하여 순서대로 정렬
+    sewing['LINE'] = sewing['LINE'].astype(str)
+    finish['LINE'] = finish['LINE'].astype(str)
+    
     return sewing, finish
 
-try:
-    sewing_df, finish_df = load_data()
-    
-    # 컬럼명이 정확히 일치하는지 확인 (이미지에서 보신 'SEWING DEFECTS %' 사용)
-    st.write("### 품질 현황 대시보드")
-    
-    # 1. 라인별 불량률 바 차트
-    if 'SEWING DEFECTS %' in sewing_df.columns:
-        # % 기호가 있다면 제거
-        sewing_df['SEWING DEFECTS %'] = sewing_df['SEWING DEFECTS %'].astype(str).str.replace('%', '').astype(float)
-        
-        st.subheader("🧵 Sewing Defect Rate by Line")
-        fig = px.bar(sewing_df, x='LINE', y='SEWING DEFECTS %', color='SEWING DEFECTS %', color_continuous_scale='Reds')
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.error(f"SEWING 시트에 'SEWING DEFECTS %' 컬럼을 찾을 수 없습니다. 현재 컬럼: {sewing_df.columns.tolist()}")
+sewing_df, finish_df = load_data()
 
-    # 2. Finishing 불량률 (두 종류)
-    st.subheader("👔 Finishing Defect Rate")
-    finish_cols = ['FINISHING BEFORE IRON DEFECTS %', 'FINISHING AFTER IRON DEFECTS %']
-    
-    # finish_df에서 해당 컬럼들이 있는지 확인 후 처리
-    for col in finish_cols:
-        if col in finish_df.columns:
-            finish_df[col] = finish_df[col].astype(str).str.replace('%', '').astype(float)
-    
-    fig2 = px.bar(finish_df, x='LINE', y=finish_cols, barmode='group')
-    st.plotly_chart(fig2, use_container_width=True)
+# 1. Sewing 그래프 (상세 표기 포함)
+st.subheader("🧵 Sewing Defect Rate by Line")
+fig1 = px.bar(sewing_df, x='LINE', y='SEWING DEFECTS %', text='SEWING DEFECTS %',
+             color='SEWING DEFECTS %', color_continuous_scale='Reds', template='plotly_dark')
+fig1.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
+fig1.update_xaxes(type='category') # 1~28 전체 라인 강제 노출
+st.plotly_chart(fig1, use_container_width=True)
 
-except Exception as e:
-    st.error(f"오류 발생: {e}")
+# 2. Finishing 그래프 (상세 표기 포함)
+st.subheader("👔 Finishing Defect Rate (Before vs After Iron)")
+finish_melted = finish_df.melt(id_vars='LINE', 
+                               value_vars=['FINISHING BEFORE IRON DEFECTS %', 'FINISHING AFTER IRON DEFECTS %'],
+                               var_name='Type', value_name='Rate')
+fig2 = px.bar(finish_melted, x='LINE', y='Rate', color='Type', barmode='group', 
+             text='Rate', template='plotly_dark')
+fig2.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
+fig2.update_xaxes(type='category')
+st.plotly_chart(fig2, use_container_width=True)
