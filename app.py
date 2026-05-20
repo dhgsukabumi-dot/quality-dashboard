@@ -6,9 +6,8 @@ st.set_page_config(layout="wide")
 @st.cache_data
 def load_data():
     file = "QC DEFECT REPORT.xlsx"
-    # header=0을 지우고 기본값으로 읽어봅니다.
     sewing = pd.read_excel(file, sheet_name="SEWING")
-    # 열 이름을 모두 문자로 변환하고 공백 제거
+    # 열 이름을 모두 문자로 변환하고 공백 제거 후 대문자로
     sewing.columns = [str(c).strip().upper() for c in sewing.columns]
     return sewing
 
@@ -16,14 +15,15 @@ try:
     sewing_df = load_data()
     
     # 1. 무엇이 문제인지 화면에 전부 출력
-    st.write("### 현재 로드된 열 이름 목록 (이 목록에 LINE이 있나요?)")
+    st.write("### 현재 로드된 열 이름 목록 (이 목록을 복사해서 저에게 주세요!)")
     st.write(sewing_df.columns.tolist()) 
     
-    # 2. 강제로 LINE 열을 찾아서 사용하되, 없으면 다음으로 넘어감
+    # 2. LINE 열 확인 (여기서는 에러나는 코드를 뺐습니다!)
     if 'LINE' in sewing_df.columns:
-        selected_line = st.sidebar.multiselect("Select Line", sewing_df['LINE'].unique())
+        st.success("LINE 열을 찾았습니다!")
+        # 이제 안전하게 사용할 수 있습니다.
     else:
-        st.error("리스트에 'LINE'이 없네요! 위 목록에서 정확한 이름을 알려주세요.")
+        st.error("리스트에 'LINE'이 없습니다!")
 
 except Exception as e:
     st.error(f"오류: {e}")
