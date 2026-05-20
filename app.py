@@ -10,10 +10,14 @@ st.title("🏭 Executive Quality Command Center")
 # 데이터 로드 (시트별로 불러오기)
 @st.cache_data
 def load_data():
-    file = "QC DEFECT REPORT.xlsx" # 파일명
+    file = "QC DEFECT REPORT.xlsx"
     sewing = pd.read_excel(file, sheet_name="SEWING")
+    
+    # 열 이름의 앞뒤 공백을 제거하고 대문자로 통일 (이게 있으면 에러가 사라집니다!)
+    sewing.columns = sewing.columns.str.strip().str.upper() 
+    
     finishing = pd.read_excel(file, sheet_name="FINISHING")
-    return sewing, finishing
+    finishing.columns = finishing.columns.str.strip().str.upper()
 
 sewing_df, finish_df = load_data()
 
