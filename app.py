@@ -1,18 +1,19 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-
-st.set_page_config(layout="wide", page_title="DHG2 Quality Dashboard")
-st.title("🏭 Executive Quality Command Center")
 
 @st.cache_data
 def load_data():
     file = "QC DEFECT REPORT.xlsx"
     sewing = pd.read_excel(file, sheet_name="SEWING")
-    finish = pd.read_excel(file, sheet_name="FINISHING")
-    sewing.columns = [str(c).strip().upper() for c in sewing.columns]
-    finish.columns = [str(c).strip().upper() for c in finish.columns]
-    return sewing, finish
+    # 공백만 제거하고 대문자로 변경한 뒤, 컬럼 리스트를 반환
+    return sewing.columns.str.strip().str.upper().tolist()
+
+try:
+    cols = load_data()
+    st.write("### 엑셀에서 확인된 컬럼 이름들:")
+    st.write(cols)
+except Exception as e:
+    st.error(e)
 
 try:
     sewing_df, finish_df = load_data()
