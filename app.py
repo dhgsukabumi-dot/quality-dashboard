@@ -10,7 +10,7 @@ st.title("🏭 Executive Quality Command Center")
 # 데이터 로드 (시트별로 불러오기)
 @st.cache_data
 def load_data():
-    file = "QC_DEFECT_REPORT.xlsx" # 파일명
+    file = "QC DEFECT REPORT.xlsx" # 파일명
     sewing = pd.read_excel(file, sheet_name="Raw Data - Sewing")
     finishing = pd.read_excel(file, sheet_name="Raw Data - Finishing")
     return sewing, finishing
