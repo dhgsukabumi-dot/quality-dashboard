@@ -6,23 +6,24 @@ st.set_page_config(layout="wide")
 @st.cache_data
 def load_data():
     file = "QC DEFECT REPORT.xlsx"
-    # 시트 이름을 확인하기 위해 시트 목록만 먼저 불러옵니다.
-    xl = pd.ExcelFile(file)
-    st.write("엑셀 파일 내 시트 목록:", xl.sheet_names) # 이 줄을 통해 실제 시트명을 확인하세요
-    
     sewing = pd.read_excel(file, sheet_name="SEWING") 
     finishing = pd.read_excel(file, sheet_name="FINISHING")
+    
+    # 여기서 열 이름을 출력해서 확인합니다!
+    st.write("--- 실제 데이터의 열 이름 확인 ---")
+    st.write(sewing.columns.tolist()) 
     
     sewing.columns = sewing.columns.str.strip().str.upper()
     finishing.columns = finishing.columns.str.strip().str.upper()
     return sewing, finishing
 
-try:
-    sewing_df, finish_df = load_data()
-    st.write("데이터 로드 성공!")
-    st.write(sewing_df.head()) # 데이터가 잘 들어왔는지 확인
-except Exception as e:
-    st.error(f"에러 발생: {e}")
+sewing_df, finish_df = load_data()
+
+# 이제 여기서 LINE이라는 열이 있는지 확인
+if 'LINE' in sewing_df.columns:
+    selected_line = st.sidebar.multiselect("Select Line", sewing_df['LINE'].unique())
+else:
+    st.error("데이터에 'LINE'이라는 열이 없습니다! 위에 출력된 열 이름 목록을 확인해주세요.")
 
 # 사이드바 필터 (날짜 및 라인 선택)
 st.sidebar.header("Filter Settings")
