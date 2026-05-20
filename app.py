@@ -1,52 +1,49 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
+
+st.set_page_config(layout="wide")
 
 @st.cache_data
 def load_data():
     file = "QC DEFECT REPORT.xlsx"
+    # 시트별로 로드
     sewing = pd.read_excel(file, sheet_name="SEWING")
-    # 공백만 제거하고 대문자로 변경한 뒤, 컬럼 리스트를 반환
-    return sewing.columns.str.strip().str.upper().tolist()
-
-try:
-    cols = load_data()
-    st.write("### 엑셀에서 확인된 컬럼 이름들:")
-    st.write(cols)
-except Exception as e:
-    st.error(e)
+    finish = pd.read_excel(file, sheet_name="FINISHING")
+    
+    # 열 이름 정리
+    sewing.columns = [str(c).strip().upper() for c in sewing.columns]
+    finish.columns = [str(c).strip().upper() for c in finish.columns]
+    return sewing, finish
 
 try:
     sewing_df, finish_df = load_data()
-
-    # --- 1. Gap 분석 (Line 1~28 전체 표시) ---
-    st.subheader("📊 Sewing vs Finishing Gap Analysis")
-    s_avg = sewing_df.groupby('LINE')['DEFECTS %'].mean().reindex(range(1, 29), fill_value=0).reset_index()
-    f_avg = finish_df.groupby('LINE')['DEFECTS %'].mean().reindex(range(1, 29), fill_value=0).reset_index()
-    combined = pd.merge(s_avg, f_avg, on='LINE', suffixes=('_S', '_F'))
     
-    fig_gap = px.bar(combined.melt(id_vars='LINE', value_vars=['DEFECTS %_S', 'DEFECTS %_F']), 
-                     x='LINE', y='value', color='variable', barmode='group')
-    st.plotly_chart(fig_gap, use_container_width=True)
-
-    # --- 2. 파레토 차트 (불량 항목 순위) ---
-    st.subheader("📈 Top 10 Defect Types (Pareto Analysis)")
-    # 실제 데이터의 컬럼을 보고 불량항목을 자동으로 추출 (DATE, BUYER 등 제외)
-    common_cols = ['DATE', 'BUYER', 'STYLE', 'LINE', 'TOTAL DEFECTS', 'Q\'TY ACCEPTED', 'TOTAL Q\'TY INSPECTED', 'DEFECTS %', 'REMARKS']
-    defect_cols = [c for c in sewing_df.columns if c not in common_cols]
+    # 컬럼명이 정확히 일치하는지 확인 (이미지에서 보신 'SEWING DEFECTS %' 사용)
+    st.write("### 품질 현황 대시보드")
     
-    pareto_data = sewing_df[defect_cols].sum().sort_values(ascending=False).head(10).reset_index()
-    pareto_data.columns = ['Defect Type', 'Count']
-    fig_pareto = px.bar(pareto_data, x='Defect Type', y='Count', color='Count')
-    st.plotly_chart(fig_pareto, use_container_width=True)
+    # 1. 라인별 불량률 바 차트
+    if 'SEWING DEFECTS %' in sewing_df.columns:
+        # % 기호가 있다면 제거
+        sewing_df['SEWING DEFECTS %'] = sewing_df['SEWING DEFECTS %'].astype(str).str.replace('%', '').astype(float)
+        
+        st.subheader("🧵 Sewing Defect Rate by Line")
+        fig = px.bar(sewing_df, x='LINE', y='SEWING DEFECTS %', color='SEWING DEFECTS %', color_continuous_scale='Reds')
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.error(f"SEWING 시트에 'SEWING DEFECTS %' 컬럼을 찾을 수 없습니다. 현재 컬럼: {sewing_df.columns.tolist()}")
 
-    # --- 3. 스타일 추이 ---
-    st.subheader("📅 Style-wise Defect Trend")
-    styles = sewing_df['STYLE'].unique()
-    selected_style = st.multiselect("Select Style", styles, default=styles[:1])
-    trend_df = sewing_df[sewing_df['STYLE'].isin(selected_style)]
-    fig_trend = px.line(trend_df, x='DATE', y='DEFECTS %', color='STYLE', markers=True)
-    st.plotly_chart(fig_trend, use_container_width=True)
+    # 2. Finishing 불량률 (두 종류)
+    st.subheader("👔 Finishing Defect Rate")
+    finish_cols = ['FINISHING BEFORE IRON DEFECTS %', 'FINISHING AFTER IRON DEFECTS %']
+    
+    # finish_df에서 해당 컬럼들이 있는지 확인 후 처리
+    for col in finish_cols:
+        if col in finish_df.columns:
+            finish_df[col] = finish_df[col].astype(str).str.replace('%', '').astype(float)
+    
+    fig2 = px.bar(finish_df, x='LINE', y=finish_cols, barmode='group')
+    st.plotly_chart(fig2, use_container_width=True)
 
 except Exception as e:
-    st.error(f"오류: {e}")
-    st.write("엑셀 파일을 다시 확인해주세요.")
+    st.error(f"오류 발생: {e}")
