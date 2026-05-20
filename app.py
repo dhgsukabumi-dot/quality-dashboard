@@ -2,44 +2,51 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-st.set_page_config(layout="wide")
+# 1. 페이지 설정
+st.set_page_config(layout="wide", page_title="Quality Dashboard")
+st.title("🏭 Executive Quality Command Center")
 
+# 2. 데이터 로드
 @st.cache_data
 def load_data():
     file = "QC DEFECT REPORT.xlsx"
-    # header=2: 세 번째 줄을 헤더로 읽습니다.
-    sewing = pd.read_excel(file, sheet_name="SEWING", header=2)
+    # 이제 파일이 깔끔하므로 기본값으로 읽습니다.
+    sewing = pd.read_excel(file, sheet_name="SEWING")
+    finishing = pd.read_excel(file, sheet_name="FINISHING")
     
-    # 열 이름 정리 (공백 제거 및 대문자)
+    # 열 이름 통일 (공백 제거 및 대문자)
     sewing.columns = [str(c).strip().upper() for c in sewing.columns]
+    finishing.columns = [str(c).strip().upper() for c in finishing.columns]
     
-    # 퍼센트 기호 제거 및 숫자로 변환 (그래프를 그리기 위해 필수!)
-    if 'DEFECTS %' in sewing.columns:
-        sewing['DEFECTS %'] = sewing['DEFECTS %'].astype(str).str.replace('%', '')
-        sewing['DEFECTS %'] = pd.to_numeric(sewing['DEFECTS %'], errors='coerce')
-        
-    return sewing
+    return sewing, finishing
 
 try:
-    sewing_df = load_data()
+    sewing_df, finish_df = load_data()
     
-    st.write("### 현재 로드된 컬럼 목록:")
-    st.write(sewing_df.columns.tolist())
+    # 사이드바 필터
+    st.sidebar.header("Filter Settings")
+    selected_line = st.sidebar.multiselect("Select Line", sewing_df['LINE'].unique())
     
-    # 이제 'LINE'과 'DEFECTS %'가 있는지 확인
-    if 'LINE' in sewing_df.columns and 'DEFECTS %' in sewing_df.columns:
-        st.sidebar.header("Filter Settings")
-        selected_line = st.sidebar.multiselect("Select Line", sewing_df['LINE'].unique())
-        
-        filtered_df = sewing_df
-        if selected_line:
-            filtered_df = sewing_df[sewing_df['LINE'].isin(selected_line)]
-            
-        st.subheader("Line vs Defect Rate")
-        fig = px.bar(filtered_df, x='LINE', y='DEFECTS %', color='DEFECTS %', color_continuous_scale='Reds')
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.error("컬럼을 찾을 수 없습니다. 위 목록을 보고 정확한 헤더 위치를 확인해야 합니다.")
+    # 데이터 필터링
+    filtered_df = sewing_df
+    if selected_line:
+        filtered_df = sewing_df[sewing_df['LINE'].isin(selected_line)]
+    
+    # 메트릭 표시 (숫자 처리)
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Sewing Defects", int(filtered_df['TOTAL DEFECTS'].sum()))
+    col2.metric("Total Inspected", int(filtered_df['TOTAL Q\'TY INSPECTED'].sum()))
+    
+    # 차트 시각화
+    st.subheader("Line vs Defect Rate")
+    # 'DEFECTS %' 열이 문자열(예: '35.1%')이면 그래프가 안 그려지므로 숫자로 변환
+    if filtered_df['DEFECTS %'].dtype == 'object':
+        filtered_df['DEFECTS %'] = filtered_df['DEFECTS %'].astype(str).str.replace('%', '').astype(float)
+    
+    fig = px.bar(filtered_df, x='LINE', y='DEFECTS %', color='DEFECTS %', 
+                 color_continuous_scale='Reds', template='plotly_dark')
+    st.plotly_chart(fig, use_container_width=True)
 
 except Exception as e:
-    st.error(f"오류 발생: {e}")
+    st.error(f"데이터 로드 중 오류 발생: {e}")
+    st.write("엑셀 헤더가 올바른지 다시 한번 확인해주세요.")
