@@ -1,76 +1,52 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 
 st.set_page_config(layout="wide")
 
 @st.cache_data
 def load_data():
     file = "QC DEFECT REPORT.xlsx"
+    # 시트를 읽어옵니다.
     sewing = pd.read_excel(file, sheet_name="SEWING")
-    # 열 이름을 모두 문자로 변환하고 공백 제거 후 대문자로
+    # 열 이름을 깔끔하게 정리 (대문자 + 공백 제거)
     sewing.columns = [str(c).strip().upper() for c in sewing.columns]
     return sewing
 
 try:
     sewing_df = load_data()
     
-    # 1. 무엇이 문제인지 화면에 전부 출력
-    st.write("### 현재 로드된 열 이름 목록 (이 목록을 복사해서 저에게 주세요!)")
-    st.write(sewing_df.columns.tolist()) 
+    # 1. 실제 컬럼 목록을 확인 (에러 시 원인 파악용)
+    cols = sewing_df.columns.tolist()
     
-    # 2. LINE 열 확인 (여기서는 에러나는 코드를 뺐습니다!)
-    if 'LINE' in sewing_df.columns:
-        st.success("LINE 열을 찾았습니다!")
-        # 이제 안전하게 사용할 수 있습니다.
+    # 2. 'LINE' 또는 '라인' 등이 있는지 확인
+    line_col = 'LINE' if 'LINE' in cols else (cols[3] if len(cols) > 3 else None)
+    
+    st.write("### 데이터 구조 확인 (이 리스트를 보고 열 이름을 수정해야 합니다)")
+    st.write("컬럼 목록:", cols)
+    
+    if line_col:
+        st.sidebar.header("Filter Settings")
+        selected_line = st.sidebar.multiselect("Select Line", sewing_df[line_col].unique())
+        
+        # 필터 적용
+        filtered_df = sewing_df
+        if selected_line:
+            filtered_df = sewing_df[sewing_df[line_col].isin(selected_line)]
+            
+        # 메트릭 표시 (총 불량 수 열이 TOTAL DEFECTS 인지 확인)
+        # 엑셀 헤더명을 다시 확인하여 매칭해야 합니다.
+        st.write("데이터 미리보기:", filtered_df.head())
+        
+        st.subheader("Line vs Defect Rate")
+        if 'DEFECTS %' in filtered_df.columns:
+            fig = px.bar(filtered_df, x=line_col, y='DEFECTS %', color='DEFECTS %')
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("그래프를 그릴 'DEFECTS %' 열을 찾을 수 없습니다.")
+            
     else:
-        st.error("리스트에 'LINE'이 없습니다!")
+        st.error("데이터에서 라인 정보를 찾을 수 없습니다.")
 
 except Exception as e:
-    st.error(f"오류: {e}")
-
-# 2. 여기서 확인!
-st.write("사용 가능한 열 이름 목록:")
-st.write(sewing_df.columns.tolist())
-
-# 3. 에러 방지를 위해 LINE이 있는지 체크
-if 'LINE' in sewing_df.columns:
-    selected_line = st.sidebar.multiselect("Select Line", sewing_df['LINE'].unique())
-else:
-    st.error("데이터 프레임에 'LINE'이라는 열이 없습니다. 위 목록을 확인해 보세요.")
-
-# 이제 여기서 LINE이라는 열이 있는지 확인
-if 'LINE' in sewing_df.columns:
-    selected_line = st.sidebar.multiselect("Select Line", sewing_df['LINE'].unique())
-else:
-    st.error("데이터에 'LINE'이라는 열이 없습니다! 위에 출력된 열 이름 목록을 확인해주세요.")
-
-# 사이드바 필터 (날짜 및 라인 선택)
-st.sidebar.header("Filter Settings")
-selected_date = st.sidebar.date_input("Select Date")
-selected_line = st.sidebar.multiselect("Select Line", sewing_df['LINE'].unique())
-
-# 데이터 필터링 로직
-mask = (sewing_df['Date'].dt.date == selected_date)
-if selected_line:
-    mask &= sewing_df['LINE'].isin(selected_line)
-filtered_sewing = sewing_df[mask]
-
-# 1. 핵심 지표 (Metric Cards)
-col1, col2, col3 = st.columns(3)
-col1.metric("Total Sewing Defects", filtered_sewing['Total Defects'].sum())
-col2.metric("Avg Defect Rate", f"{filtered_sewing['Defects %'].mean():.2%}")
-col3.metric("Total Inspected", filtered_sewing['Total Q\'ty Inspected'].sum())
-
-# 2. 그래프 시각화 (Plotly)
-st.subheader("Worst Performing Lines (Defect Rate)")
-fig = px.bar(filtered_sewing, x='LINE', y='Defects %', color='Defects %', 
-             color_continuous_scale='Reds', template='plotly_dark')
-st.plotly_chart(fig, use_container_width=True)
-
-# 3. 불량 유형 파레토 차트 (Top 10)
-st.subheader("Top 10 Defect Types")
-defect_columns = ['Broken Stitch', 'Skip stitch', 'Puckering', 'Dirty Stain/ Oil/ chalk mark'] # 추가 필요
-data_melted = filtered_sewing[defect_columns].sum().reset_index()
-data_melted.columns = ['Type', 'Count']
-fig2 = px.pie(data_melted, values='Count', names='Type', hole=0.4)
-st.plotly_chart(fig2, use_container_width=True)
+    st.error(f"오류 발생: {e}")
