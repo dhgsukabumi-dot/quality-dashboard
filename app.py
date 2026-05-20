@@ -51,3 +51,21 @@ fig2 = px.bar(finish_melted, x='LINE', y='Rate', color='Type', barmode='group',
 fig2.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
 fig2.update_xaxes(type='category')
 st.plotly_chart(fig2, use_container_width=True)
+
+# 3. 불량 항목 순위 파레토 차트 (전체 합계 기준)
+st.subheader("📈 Top Defect Types Analysis (Total Count)")
+
+# 엑셀의 불량 항목 열들을 자동으로 추출 (앞서 배운 것처럼 특정 항목 제외)
+# (DATE, BUYER, STYLE, LINE, TOTAL DEFECTS, Q'TY ACCEPTED, TOTAL Q'TY INSPECTED, DEFECTS %, REMARKS 제외)
+common_cols = ['DATE', 'BUYER', 'STYLE', 'LINE', 'TOTAL DEFECTS', 'Q\'TY ACCEPTED', 'TOTAL Q\'TY INSPECTED', 'SEWING DEFECTS %', 'REMARKS']
+defect_item_cols = [c for c in sewing_df.columns if c not in common_cols]
+
+# 불량 항목별 합계 계산
+defect_sums = sewing_df[defect_item_cols].sum().sort_values(ascending=False).head(10).reset_index()
+defect_sums.columns = ['Defect Item', 'Count']
+
+# 파레토 차트 그리기
+fig3 = px.bar(defect_sums, x='Defect Item', y='Count', text='Count',
+             color='Count', color_continuous_scale='Blues', template='plotly_dark')
+fig3.update_traces(texttemplate='%{text}', textposition='outside')
+st.plotly_chart(fig3, use_container_width=True)
