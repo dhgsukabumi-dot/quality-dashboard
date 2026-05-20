@@ -6,16 +6,29 @@ st.set_page_config(layout="wide")
 @st.cache_data
 def load_data():
     file = "QC DEFECT REPORT.xlsx"
-    # header=0은 첫 번째 줄을 헤더로 읽겠다는 뜻입니다. 
-    # 혹시 헤더가 두 번째 줄에 있다면 header=1로 바꿔야 할 수도 있습니다.
-    sewing = pd.read_excel(file, sheet_name="SEWING", header=0)
+    # 시트를 불러옵니다.
+    sewing = pd.read_excel(file, sheet_name="SEWING")
     
-    # 1. 열 이름에 공백/특수문자 제거 후 모두 대문자로 변경
+    # 열 이름을 깔끔하게 정리합니다.
     sewing.columns = sewing.columns.astype(str).str.strip().str.upper()
-    
     return sewing
 
-sewing_df = load_data()
+try:
+    sewing_df = load_data()
+    
+    # [중요] 여기에 실제 데이터의 열 이름을 무조건 화면에 띄웁니다.
+    st.write("--- 실제 데이터의 열 이름 목록 ---")
+    st.write(sewing_df.columns.tolist()) 
+    
+    # 만약 LINE 열이 있으면 선택창을 만들고, 없으면 경고를 띄웁니다.
+    if 'LINE' in sewing_df.columns:
+        selected_line = st.sidebar.multiselect("Select Line", sewing_df['LINE'].unique())
+        st.write("선택된 라인:", selected_line)
+    else:
+        st.warning("데이터에 'LINE'이라는 열이 없습니다. 위 목록을 확인해서 정확한 이름을 찾아주세요.")
+
+except Exception as e:
+    st.error(f"오류 발생: {e}")
 
 # 2. 여기서 확인!
 st.write("사용 가능한 열 이름 목록:")
