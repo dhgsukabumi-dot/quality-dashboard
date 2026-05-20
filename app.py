@@ -6,41 +6,27 @@ st.set_page_config(layout="wide")
 @st.cache_data
 def load_data():
     file = "QC DEFECT REPORT.xlsx"
+    # header=0을 지우고 기본값으로 읽어봅니다.
     sewing = pd.read_excel(file, sheet_name="SEWING")
-    # 모든 열 이름을 대문자로 바꾸고 공백 제거
-    sewing.columns = sewing.columns.astype(str).str.strip().str.upper()
+    # 열 이름을 모두 문자로 변환하고 공백 제거
+    sewing.columns = [str(c).strip().upper() for c in sewing.columns]
     return sewing
 
 try:
     sewing_df = load_data()
     
-    st.write("### 엑셀에서 인식된 열 이름 목록 (이것을 확인하세요!)")
+    # 1. 무엇이 문제인지 화면에 전부 출력
+    st.write("### 현재 로드된 열 이름 목록 (이 목록에 LINE이 있나요?)")
     st.write(sewing_df.columns.tolist()) 
     
-    # 여기서 'LINE'이라는 단어가 포함된 열이 있는지 확인
+    # 2. 강제로 LINE 열을 찾아서 사용하되, 없으면 다음으로 넘어감
     if 'LINE' in sewing_df.columns:
         selected_line = st.sidebar.multiselect("Select Line", sewing_df['LINE'].unique())
-        st.write("선택된 라인:", selected_line)
     else:
-        st.warning("데이터프레임에 'LINE'이라는 열이 없습니다!")
-        st.write("리스트에 있는 이름 중 하나를 골라 코드를 수정해야 합니다.")
+        st.error("리스트에 'LINE'이 없네요! 위 목록에서 정확한 이름을 알려주세요.")
 
 except Exception as e:
-    st.error(f"오류 발생: {e}")
-    
-    # [중요] 여기에 실제 데이터의 열 이름을 무조건 화면에 띄웁니다.
-    st.write("--- 실제 데이터의 열 이름 목록 ---")
-    st.write(sewing_df.columns.tolist()) 
-    
-    # 만약 LINE 열이 있으면 선택창을 만들고, 없으면 경고를 띄웁니다.
-    if 'LINE' in sewing_df.columns:
-        selected_line = st.sidebar.multiselect("Select Line", sewing_df['LINE'].unique())
-        st.write("선택된 라인:", selected_line)
-    else:
-        st.warning("데이터에 'LINE'이라는 열이 없습니다. 위 목록을 확인해서 정확한 이름을 찾아주세요.")
-
-except Exception as e:
-    st.error(f"오류 발생: {e}")
+    st.error(f"오류: {e}")
 
 # 2. 여기서 확인!
 st.write("사용 가능한 열 이름 목록:")
